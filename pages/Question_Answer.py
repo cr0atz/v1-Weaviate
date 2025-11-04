@@ -32,12 +32,16 @@ def get_answer_from_api(user_question, model):
     if not API_AUTH_TOKEN:
         return json.dumps({"error": "API_AUTH_TOKEN not configured in .env"})
     
+    # Information: Use X-API-Key header (preferred) with payload fallback for backward compatibility
     payload = {
         "user_question": user_question,
         "user_model": model,
-        "user_auth": API_AUTH_TOKEN
+        "user_auth": API_AUTH_TOKEN  # Keep for backward compatibility
     }
-    headers = {'Content-Type': 'application/json'}
+    headers = {
+        'Content-Type': 'application/json',
+        'X-API-Key': API_AUTH_TOKEN  # Information: Header-based auth (preferred)
+    }
     try:
         response = requests.post(API_endpoint, headers=headers, json=payload)
         response.raise_for_status()  # Raises an HTTPError for bad responses

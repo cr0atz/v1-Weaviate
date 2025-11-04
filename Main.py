@@ -4,7 +4,7 @@ import numpy as np
 import openai
 from transformers import GPT2TokenizerFast
 import json
-from fastapi import FastAPI, Body, HTTPException
+from fastapi import FastAPI, Body, HTTPException, Header, Depends
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from typing import List
@@ -167,8 +167,58 @@ app = FastAPI()
 def read_root():
     return {"message": "This is v1 on weaviate API"}
 
+# Information: Auth validation function
+def validate_auth(x_api_key: str = None, payload_auth: str = None) -> bool:
+    """
+    Validate API key from header (preferred) or payload (backward compatible).
+    
+    Args:
+        x_api_key: API key from X-API-Key header
+        payload_auth: API key from payload user_auth field
+    
+    Returns:
+        bool: True if valid
+    
+    Raises:
+        HTTPException: If API key is invalid or missing
+    """
+    # Information: Check if API_AUTH_TOKEN is configured
+    if not API_AUTH_TOKEN:
+        raise HTTPException(
+            status_code=500,
+            detail="Server configuration error: API_AUTH_TOKEN not set"
+        )
+    
+    # Information: Prefer header-based auth
+    if x_api_key:
+        if x_api_key != API_AUTH_TOKEN:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid API key"
+            )
+        return True
+    
+    # Information: Fall back to payload-based auth for backward compatibility
+    if payload_auth:
+        if payload_auth != API_AUTH_TOKEN:
+            raise HTTPException(
+                status_code=401,
+                detail="Unauthorized"
+            )
+        return True
+    
+    # Information: No auth provided
+    raise HTTPException(
+        status_code=401,
+        detail="API key required. Provide X-API-Key header or user_auth in payload."
+    )
+
+
 @app.post("/generate_answers/")
-async def generate_answers(payload: dict):
+async def generate_answers(
+    payload: dict,
+    x_api_key: str = Header(None, alias="X-API-Key")
+):
     """
     THis API is used to generate answers for the user question.
     args:
@@ -206,39 +256,14 @@ async def generate_answers(payload: dict):
             status_code=400,
             detail="Parameter 'user_question' should not be empty."
         )
-    elif 'user_auth' not in payload:
-        raise HTTPException(
-            status_code=400,
-            detail="Parameter 'user_auth' not found."
-        )
-    elif not isinstance(payload['user_auth'], str):
-        raise HTTPException(
-            status_code=400,
-            detail="Parameter 'user_auth' should be a string."
-        )
-    elif len(payload['user_auth']) == 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Parameter 'user_auth' should not be empty."
-        )
-
+    
+    # Information: Validate API key (supports both header and payload auth)
+    payload_auth = payload.get('user_auth', None)
+    validate_auth(x_api_key=x_api_key, payload_auth=payload_auth)
+    
     # Set the user question
     user_question = payload['user_question']
     model = payload['user_model']
-    user_auth = payload['user_auth']
-
-    # Information: Validate auth token from environment variable instead of hardcoded value
-    if not API_AUTH_TOKEN:
-        raise HTTPException(
-            status_code=500,
-            detail="Server configuration error: API_AUTH_TOKEN not set"
-        )
-    
-    if user_auth != API_AUTH_TOKEN:
-        raise HTTPException(
-            status_code=401,
-            detail="Unauthorized"
-        )
     
     try:
         ans, context, reasoning, case_name = return_answer_and_context_for_queries(

@@ -1,6 +1,6 @@
 # v1-Weaviate
 
-FastAPI backend + Streamlit UI that queries a Weaviate vector database and uses OpenAI to generate answers 
+FastAPI backend + Streamlit UI that queries a Weaviate vector database and uses OpenAI to generate answers
 and reasoning.
 
 ## Open Source Announcement
@@ -13,7 +13,7 @@ Contributions and feedback are welcome.
 - Backend: FastAPI app (`Main.py`) exposing `/` and `/generate_answers/`.
 - Vector DB: Weaviate client querying class `AI_v1` with hybrid search.
 - LLM: OpenAI Chat Completions (e.g., `gpt-4o`).
-- Frontend: Streamlit page (`pages/Question_Answer.py`) posting to the API and displaying answers, 
+- Frontend: Streamlit page (`pages/Question_Answer.py`) posting to the API and displaying answers,
   reasoning, context, and case name.
 - Prompts: `prompts/prompt.txt` and `prompts/reasoning_prompt.txt` used to shape responses.
 

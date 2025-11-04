@@ -77,6 +77,23 @@ Notes:
 - Weaviate class `AI_v1` is expected to have properties: `data`, `case_name`, and `_additional { score }` in the query.
 - `user_auth` must match the `API_AUTH_TOKEN` set in `.env` (secure, rotatable).
 
+## Weaviate Schema
+
+The project uses a versioned schema for the `AI_v1` class optimized for Australian Family Law documents:
+
+```bash
+# Create schema (first time setup)
+python scripts/create_schema.py
+
+# Validate deployed schema
+python scripts/validate_schema.py
+
+# Force recreate (WARNING: deletes all data)
+python scripts/create_schema.py --force
+```
+
+See `schema/README.md` for full schema documentation including properties, indexing, and vectorizer configuration.
+
 ## Development Notes
 - The app loads environment variables via `python-dotenv`.
 - Tokenization uses `transformers` GPT2 tokenizer.

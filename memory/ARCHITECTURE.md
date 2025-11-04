@@ -37,11 +37,19 @@
 - Auth: payload `user_auth` must match `API_AUTH_TOKEN` from `.env` (secure, rotatable).
 - Tokenization via `transformers` GPT2 tokenizer determines chunking logic in ingestion.
 
+## Weaviate Schema
+- **Class**: `AI_v1`
+- **Vectorizer**: text2vec-openai (text-embedding-3-small)
+- **Properties**: case_name, citation, court, jurisdiction, decision_date, data, paragraph_refs, source_uri, legal_topics, chunk_index, total_chunks, ingestion_date
+- **Schema File**: `schema/ai_v1_schema.json`
+- **Scripts**: `scripts/create_schema.py`, `scripts/validate_schema.py`
+- See `schema/README.md` for full documentation
+
 ## Risks / Gaps
 - Auth token now secure via `.env` (✅ resolved).
 - `requirements.txt` missing many runtime deps (use `requirements.txt.old` as reference and pin versions).
 - Unused/legacy patterns (e.g., older OpenAI embeddings usage in `Upload_Data.py`).
-- Weaviate schema assumptions may not match deployed instance.
+- Weaviate schema now versioned and documented (✅ resolved).
 
 ## CI & Docs
 - GitHub Actions: lint Markdown/YAML and Python smoke checks.

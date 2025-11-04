@@ -1,0 +1,185 @@
+{
+  "class": "AI_v1",
+  "description": "Australian Family Law case law documents with hybrid search support",
+  "vectorizer": "text2vec-openai",
+  "moduleConfig": {
+    "text2vec-openai": {
+      "model": "text-embedding-3-small",
+      "modelVersion": "003",
+      "type": "text",
+      "vectorizeClassName": false
+    }
+  },
+  "properties": [
+    {
+      "name": "case_name",
+      "dataType": ["text"],
+      "description": "Full case name/title (e.g., 'Smith & Jones [2024] FamCA 123')",
+      "moduleConfig": {
+        "text2vec-openai": {
+          "skip": false,
+          "vectorizePropertyName": false
+        }
+      },
+      "indexFilterable": true,
+      "indexSearchable": true
+    },
+    {
+      "name": "citation",
+      "dataType": ["text"],
+      "description": "Official citation (e.g., '[2024] FamCA 123')",
+      "moduleConfig": {
+        "text2vec-openai": {
+          "skip": true
+        }
+      },
+      "indexFilterable": true,
+      "indexSearchable": true
+    },
+    {
+      "name": "court",
+      "dataType": ["text"],
+      "description": "Court name (e.g., 'Family Court of Australia', 'Federal Circuit and Family Court')",
+      "moduleConfig": {
+        "text2vec-openai": {
+          "skip": true
+        }
+      },
+      "indexFilterable": true,
+      "indexSearchable": true
+    },
+    {
+      "name": "jurisdiction",
+      "dataType": ["text"],
+      "description": "Jurisdiction/state (e.g., 'NSW', 'VIC', 'QLD', 'Federal')",
+      "moduleConfig": {
+        "text2vec-openai": {
+          "skip": true
+        }
+      },
+      "indexFilterable": true,
+      "indexSearchable": true
+    },
+    {
+      "name": "decision_date",
+      "dataType": ["date"],
+      "description": "Date of decision in ISO 8601 format",
+      "moduleConfig": {
+        "text2vec-openai": {
+          "skip": true
+        }
+      },
+      "indexFilterable": true,
+      "indexSearchable": false
+    },
+    {
+      "name": "data",
+      "dataType": ["text"],
+      "description": "Main text content (judgment paragraph or section)",
+      "moduleConfig": {
+        "text2vec-openai": {
+          "skip": false,
+          "vectorizePropertyName": false
+        }
+      },
+      "indexFilterable": false,
+      "indexSearchable": true
+    },
+    {
+      "name": "paragraph_refs",
+      "dataType": ["text[]"],
+      "description": "Paragraph numbers/references in this chunk (e.g., ['[123]', '[124]'])",
+      "moduleConfig": {
+        "text2vec-openai": {
+          "skip": true
+        }
+      },
+      "indexFilterable": false,
+      "indexSearchable": false
+    },
+    {
+      "name": "source_uri",
+      "dataType": ["text"],
+      "description": "Source URL (e.g., AUSTLII link)",
+      "moduleConfig": {
+        "text2vec-openai": {
+          "skip": true
+        }
+      },
+      "indexFilterable": true,
+      "indexSearchable": false
+    },
+    {
+      "name": "legal_topics",
+      "dataType": ["text[]"],
+      "description": "Family law topics/categories (e.g., ['parenting', 'property settlement', 's60CC factors'])",
+      "moduleConfig": {
+        "text2vec-openai": {
+          "skip": true
+        }
+      },
+      "indexFilterable": true,
+      "indexSearchable": true
+    },
+    {
+      "name": "chunk_index",
+      "dataType": ["int"],
+      "description": "Index of this chunk within the source document (0-based)",
+      "moduleConfig": {
+        "text2vec-openai": {
+          "skip": true
+        }
+      },
+      "indexFilterable": true,
+      "indexSearchable": false
+    },
+    {
+      "name": "total_chunks",
+      "dataType": ["int"],
+      "description": "Total number of chunks for this case",
+      "moduleConfig": {
+        "text2vec-openai": {
+          "skip": true
+        }
+      },
+      "indexFilterable": false,
+      "indexSearchable": false
+    },
+    {
+      "name": "ingestion_date",
+      "dataType": ["date"],
+      "description": "When this document was ingested into Weaviate",
+      "moduleConfig": {
+        "text2vec-openai": {
+          "skip": true
+        }
+      },
+      "indexFilterable": true,
+      "indexSearchable": false
+    }
+  ],
+  "vectorIndexType": "hnsw",
+  "vectorIndexConfig": {
+    "skip": false,
+    "cleanupIntervalSeconds": 300,
+    "maxConnections": 64,
+    "efConstruction": 128,
+    "ef": -1,
+    "dynamicEfMin": 100,
+    "dynamicEfMax": 500,
+    "dynamicEfFactor": 8,
+    "vectorCacheMaxObjects": 1000000,
+    "flatSearchCutoff": 40000,
+    "distance": "cosine"
+  },
+  "invertedIndexConfig": {
+    "bm25": {
+      "b": 0.75,
+      "k1": 1.2
+    },
+    "cleanupIntervalSeconds": 60,
+    "stopwords": {
+      "preset": "en"
+    }
+  }
+}

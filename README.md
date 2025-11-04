@@ -2,6 +2,9 @@
 
 FastAPI backend + Streamlit UI that queries a Weaviate vector database and uses OpenAI to generate answers and reasoning.
 
+## Open Source Announcement
+We’re excited to open source an early version of FLAST-AI v1-Weaviate. By sharing this project publicly, we hope it helps others exploring hybrid search with Weaviate and LLM-backed reasoning. Contributions and feedback are welcome.
+
 ## Overview
 - Backend: FastAPI app (`Main.py`) exposing `/` and `/generate_answers/`.
 - Vector DB: Weaviate client querying class `AI_v1` with hybrid search.

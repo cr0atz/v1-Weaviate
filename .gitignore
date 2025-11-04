@@ -13,6 +13,7 @@ venv/
 # Env/Secrets
 .env
 .env.*
+env.txtt
 
 # Data / Caches
 cache_dir/

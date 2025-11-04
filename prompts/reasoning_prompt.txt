@@ -1,0 +1,2 @@
+Examine the context you receive from the question and explain your reasoning in thinking that the text contained in the context is relevant to the Question asked and explain why using the case law found in the information provided.  
+The reasoning should also fact check the information provided and score it for accuracy and relevance out of 10

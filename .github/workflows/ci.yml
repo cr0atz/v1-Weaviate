@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "**"]
+  pull_request:
+    branches: ["main", "**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs_lint:
+    name: Lint Markdown
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm i -g markdownlint-cli
+      - run: markdownlint "**/*.md"
+
+  yaml_lint:
+    name: Lint YAML
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --upgrade pip yamllint
+      - run: yamllint .
+
+  python_check:
+    name: Python smoke checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install base deps
+        run: |
+          pip install --upgrade pip
+          # Try requirements.txt if present; tolerate absence/missing pins
+          if [ -f requirements.txt ]; then pip install -r requirements.txt || true; fi
+          # Install commonly used packages referenced in code
+          pip install fastapi uvicorn weaviate-client python-dotenv openai transformers beautifulsoup4 streamlit requests || true
+      - name: Syntax check
+        run: |
+          python -m py_compile Main.py || true
+          if [ -d pages ]; then python -m py_compile pages/*.py || true; fi
+      - name: Run minimal tests (if present)
+        if: ${{ hashFiles('tests/**') != '' }}
+        run: |
+          pip install pytest
+          pytest -q

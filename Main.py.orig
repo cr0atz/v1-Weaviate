@@ -1,0 +1,224 @@
+from bs4 import BeautifulSoup
+import os
+import numpy as np
+import openai
+from transformers import GPT2TokenizerFast
+import json
+from fastapi import FastAPI, Body, HTTPException
+from dotenv import load_dotenv
+from typing import List
+import weaviate
+# ---------------------------- All cofig ----------------------------
+load_dotenv()  # Load the environment variables
+openai.api_key = os.getenv("OPENAI_API_KEY")
+WEAVIATE_API = os.getenv("WEAVIATE_API")
+EMBEDDING_MODEL = "text-embedding-ada-002"
+tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
+model = "gpt-4o"
+client = weaviate.Client(
+    # url="http://dev3.myvnc.com:8081",  # test1
+    url=WEAVIATE_API,  # test2
+)
+
+prompts_folder = os.path.join(os.getcwd(), "prompts")
+
+# ---------------------------- All functions ----------------------------
+
+
+def process_answer(model, messages):
+    # token_len_ans_prompt = len(tokenizer.tokenize(ans_prompt))
+    # This model's maximum context length is 8049 tokens
+    # max_tokens_gpt_4 = 8049 - token_len_ans_prompt
+    response = openai.ChatCompletion.create(
+        model=model,
+        messages=messages,
+        temperature=0.7,
+        top_p=0.9,
+        frequency_penalty=0.3,
+        presence_penalty=0.3,
+        # max_tokens=max_tokens_gpt_4
+    )["choices"][0]["message"]["content"].strip(" \n")
+    return response
+
+
+def process_reasoning(model, reasoning):
+    response = openai.ChatCompletion.create(
+        model=model,
+        messages=reasoning,
+        temperature=0.7,
+        top_p=0.9,
+        frequency_penalty=0.3,
+        presence_penalty=0.3,
+    )["choices"][0]["message"]["content"].strip(" \n")
+    return response
+
+
+def return_answer_and_context_for_queries(user_question, model):
+
+    filtered_user_question = user_question.replace('"', "'")
+
+    result = (
+        client.query
+        .get("AI_v1", ["data", "case_name", "_additional {score} "])
+        .with_hybrid(
+            filtered_user_question,
+            # alpha=0.5,
+            # vector=[1, 2, 3]
+        )
+        .do()
+    )
+    # extract the relevant data
+    ai_v1 = result['data']['Get']['AI_v1']
+
+    highest_score = max(
+        ai_v1,
+        key=lambda x: float(x['_additional']['score'])
+    )
+    case_name = highest_score['case_name']
+    data = highest_score['data']
+    score = highest_score['_additional']['score']
+    # print("Case_name: "+case_name+"\n Score: "+score+"\n data:"+data)
+
+    try:
+
+        with open(os.path.join(prompts_folder, 'prompt.txt'), 'r') as f:
+            API_prompt_text = f.read()
+        with open(os.path.join(prompts_folder, 'reasoning_prompt.txt'), 'r') as f:
+            API_reasoning_prompt_text = f.read()
+
+        ans_header = f"""{API_prompt_text}"""
+        reasoning_header = f"""{API_reasoning_prompt_text}"""
+
+        # ans_prompt = data.replace('\n', " ") + \
+        #     "\n\nQuestions: " + user_question
+
+        ans_prompt = "Questions: " + user_question + \
+            "\n\n"+data.replace('\n', " ")
+
+        messages = [
+            {
+                "role": "system",
+                "content": ans_header if len(ans_header) else "You are a helpful assistant"
+            },
+            {
+                "role": "user",
+                "content": ans_prompt
+            }
+        ]
+
+        answer = process_answer(model, messages)
+
+        reasoning_prompt = "Questions: "+user_question+"\n\n"+"Answer: " + \
+            answer.replace('\n', " ")+"Context: "+data.replace('\n', " ")
+
+        reasoning = [
+            {
+                "role": "system",
+                "content": reasoning_header if len(reasoning_header) else "You are a helpful assistant"
+            },
+            {
+                "role": "user",
+                "content": reasoning_prompt
+            }
+        ]
+
+        # print(json.dumps(reasoning))
+
+        reasoning = process_reasoning(model, reasoning)
+
+        return answer, data, reasoning, case_name
+    except openai.Error as e:
+        # print(f"An error occurred: {e}")
+        return "error", "error", "error"
+
+
+# ---------------------------- All routes ----------------------------
+
+
+app = FastAPI()
+
+
+@app.get("/")
+def read_root():
+    return {"message": "This is v1 on weaviate API"}
+
+# The user_question should be passed as a query parameter
+# The response should be a JSON object with the following keys "answer", "context", "case_name"
+
+
+@app.post("/generate_answers/")
+async def generate_answers(payload: dict):
+    """
+    THis API is used to generate answers for the user question.
+    args:
+        * payload: The payload is a dictionary containing the user question.search
+        ** user_question: The user question is a string, which is the question asked by the user.
+        ** user_auth: The user auth is a string, which is the auth code to access the API.
+    """
+    if 'user_question' not in payload:
+        raise HTTPException(
+            status_code=400,
+            detail="Parameter 'user_question' not found."
+        )
+    elif not isinstance(payload['user_question'], str):
+        raise HTTPException(
+            status_code=400,
+            detail="Parameter 'user_question' should be a string."
+        )
+    elif len(payload['user_question']) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Parameter 'user_question' should not be empty."
+        )
+    elif 'user_model' not in payload:
+        raise HTTPException(
+            status_code=400,
+            detail="Parameter 'user_model' not found."
+        )
+    elif not isinstance(payload['user_model'], str):
+        raise HTTPException(
+            status_code=400,
+            detail="Parameter 'user_model' should be a string."
+        )
+    elif len(payload['user_model']) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Parameter 'user_question' should not be empty."
+        )
+    elif 'user_auth' not in payload:
+        raise HTTPException(
+            status_code=400,
+            detail="Parameter 'user_auth' not found."
+        )
+    elif not isinstance(payload['user_auth'], str):
+        raise HTTPException(
+            status_code=400,
+            detail="Parameter 'user_auth' should be a string."
+        )
+    elif len(payload['user_auth']) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Parameter 'user_auth' should not be empty."
+        )
+
+    # Set the user question
+    user_question = payload['user_question']
+    model = payload['user_model']
+    user_auth = payload['user_auth']
+
+    if user_auth != "ntel101919":
+
+        raise HTTPException(
+            status_code=401,
+            detail="Unauthorized"
+        )
+
+    else:
+        # Get the answer and context for the user question
+        ans, context, reasoning, case_name = return_answer_and_context_for_queries(
+            user_question,
+            model
+        )
+
+        # Return the answer and context
+        return {"answer": ans, "context": context, "reasoning": reasoning, "case_name": case_name}

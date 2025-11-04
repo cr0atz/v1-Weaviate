@@ -1,0 +1,15 @@
+beautifulsoup4==4.12.3
+fastapi==0.114.2
+numpy
+openai==1.45.0
+pandas==2.2.2
+pdfplumber==0.11.4
+python-dotenv==1.0.1
+Requests==2.32.3
+scipy==1.14.1
+streamlit==1.38.0
+streamlit_book==0.7.6
+streamlit_extras==0.4.7
+tqdm==4.66.5
+transformers==4.44.2
+weaviate==0.1.0

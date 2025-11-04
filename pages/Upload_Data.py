@@ -31,7 +31,7 @@ weaviate_API = os.getenv("WEAVIATE_API")
 openai_api_key = os.getenv("OPENAI_API_KEY")
 COMPLETIONS_MODEL = "gpt-4o"
 tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
-EMBEDDING_MODEL = "text-embedding-ada-002"
+EMBEDDING_MODEL = "text-embedding-3-small"  # Information: Updated to match schema vectorizer
 
 # All configs and settings
 #client = weaviate.Client(
@@ -91,11 +91,55 @@ def read_clean_text(text_path):
     return texts, case_name
 
 
+def extract_metadata(raw_text):
+    """Extract case metadata from raw text."""
+    # Information: Extract case name from first line
+    lines = raw_text.splitlines()
+    case_name = lines[0] if lines else "Unknown Case"
+    
+    # Information: Extract citation using regex (e.g., [2024] FamCA 123)
+    citation_match = re.search(r'\[(\d{4})\]\s+([A-Z][a-zA-Z]+)\s+(\d+)', case_name)
+    citation = citation_match.group(0) if citation_match else ""
+    
+    # Information: Extract court from citation
+    court = ""
+    if "FamCA" in case_name:
+        court = "Family Court of Australia"
+    elif "FCFCA" in case_name or "FedCFamC" in case_name:
+        court = "Federal Circuit and Family Court"
+    elif "FCCA" in case_name:
+        court = "Federal Circuit Court"
+    
+    # Information: Extract jurisdiction (default to Federal for family law)
+    jurisdiction = "Federal"
+    for state in ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT", "ACT"]:
+        if state in case_name:
+            jurisdiction = state
+            break
+    
+    # Information: Extract decision date from citation year
+    decision_date = ""
+    if citation_match:
+        year = citation_match.group(1)
+        decision_date = f"{year}-01-01"  # Default to Jan 1 if specific date not available
+    
+    return {
+        "case_name": case_name,
+        "citation": citation,
+        "court": court,
+        "jurisdiction": jurisdiction,
+        "decision_date": decision_date
+    }
+
+
 def index_textfiles_main(raw_text, file_name):
 
     st.info(f"Generating embedding for context of file name: {file_name}")
 
-    case_name = raw_text.splitlines()[0]
+    # Information: Extract metadata from raw text
+    metadata = extract_metadata(raw_text)
+    case_name = metadata["case_name"]
+    
     # remove first 56 lines
     raw_text = raw_text.splitlines()[56:]
     raw_text = "\n".join(raw_text)
@@ -124,15 +168,22 @@ def index_textfiles_main(raw_text, file_name):
     total_character_count = 0
     data_ids = []
     token_limit = 6000
+    
+    # Information: Tokenize and chunk the text
+    tokens = tokenizer.tokenize(text)
+    chunks = [
+        tokens[i:i + token_limit] for i in range(0, len(tokens), token_limit)
+    ]
+    total_chunks = len(chunks)
+    
+    # Information: Get current timestamp for ingestion_date
+    from datetime import datetime
+    ingestion_date = datetime.now().isoformat()
 
     with client.batch as batch:
         batch.batch_size = token_limit
-        tokens = tokenizer.tokenize(text)
-        chunks = [
-            tokens[i:i + token_limit] for i in range(0, len(tokens), token_limit)
-        ]
 
-        for chunk in chunks:
+        for chunk_index, chunk in enumerate(chunks):
             chunk_text = tokenizer.convert_tokens_to_string(chunk)
 
             tokenized_chunk = len(chunk)
@@ -141,20 +192,26 @@ def index_textfiles_main(raw_text, file_name):
             character_count = len(chunk_text)
             total_character_count += character_count
 
-            file_data = {
-                'data': chunk_text,
-                'case_name': case_name
-            }
-
+            # Information: Build properties using new schema fields
             properties = {
-                "data":  f"(case_name: {file_data['case_name']}) " + file_data["data"],
-                "case_name": file_data["case_name"]
+                "case_name": metadata["case_name"],
+                "citation": metadata["citation"],
+                "court": metadata["court"],
+                "jurisdiction": metadata["jurisdiction"],
+                "decision_date": metadata["decision_date"],
+                "data": chunk_text,
+                "paragraph_refs": [],  # TODO: Extract paragraph numbers from chunk_text
+                "source_uri": "",  # TODO: Add source URL if available
+                "legal_topics": [],  # TODO: Add topic classification
+                "chunk_index": chunk_index,
+                "total_chunks": total_chunks,
+                "ingestion_date": ingestion_date
             }
 
             try:
                 res = client.batch.add_data_object(properties, "AI_v1")
                 # data_ids.append(str(res))
-            except openai.Error as e:
+            except Exception as e:
                 print(f"An error occurred: {e}")
 
     st.success("File uploaded successfully")

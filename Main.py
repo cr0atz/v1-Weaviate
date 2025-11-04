@@ -75,10 +75,21 @@ def return_answer_and_context_for_queries(user_question, model):
     try:
         filtered_user_question = user_question.replace('"', "'")
 
+        # Information: Query Weaviate with new schema properties for richer context
         result = (
             client.query
-            .get("AI_v1", ["data", "case_name", "_additional {score} "])
+            .get("AI_v1", [
+                "data", 
+                "case_name", 
+                "citation", 
+                "court", 
+                "jurisdiction", 
+                "decision_date",
+                "paragraph_refs",
+                "_additional {score}"
+            ])
             .with_hybrid(filtered_user_question)
+            .with_limit(5)  # Information: Get top 5 results for better context
             .do()
         )
 
@@ -90,9 +101,21 @@ def return_answer_and_context_for_queries(user_question, model):
         if not ai_v1:
             return "No relevant information found", "", "No reasoning available", "No case name"
 
+        # Information: Get highest scoring result
         highest_score = max(ai_v1, key=lambda x: float(x['_additional']['score']))
         case_name = highest_score['case_name']
+        citation = highest_score.get('citation', '')
+        court = highest_score.get('court', '')
+        jurisdiction = highest_score.get('jurisdiction', '')
+        decision_date = highest_score.get('decision_date', '')
         data = highest_score['data']
+        
+        # Information: Build enriched case reference for LLM context
+        case_reference = f"{case_name}"
+        if citation:
+            case_reference += f" {citation}"
+        if court:
+            case_reference += f" ({court})"
 
         with open(os.path.join(prompts_folder, 'prompt.txt'), 'r') as f:
             API_prompt_text = f.read()
@@ -102,7 +125,8 @@ def return_answer_and_context_for_queries(user_question, model):
         ans_header = API_prompt_text
         reasoning_header = API_reasoning_prompt_text
 
-        ans_prompt = "Questions: " + user_question + "\n\n" + data.replace('\n', ' ')
+        # Information: Include case reference in prompt for proper citation
+        ans_prompt = f"Questions: {user_question}\n\nCase: {case_reference}\n\nContext: {data.replace('\n', ' ')}"
 
         messages = [
             {"role": "system", "content": ans_header if ans_header else "You are a helpful assistant"},
@@ -111,7 +135,8 @@ def return_answer_and_context_for_queries(user_question, model):
 
         answer = process_answer(model, messages)
 
-        reasoning_prompt = "Questions: " + user_question + "\n\nAnswer: " + answer.replace('\n', ' ') + "\nContext: " + data.replace('\n', ' ')
+        # Information: Include case reference in reasoning prompt as well
+        reasoning_prompt = f"Questions: {user_question}\n\nCase: {case_reference}\n\nAnswer: {answer.replace('\n', ' ')}\n\nContext: {data.replace('\n', ' ')}"
 
         reasoning_messages = [
             {"role": "system", "content": reasoning_header if reasoning_header else "You are a helpful assistant"},

@@ -9,6 +9,7 @@ import os
 
 load_dotenv()
 API_endpoint = os.getenv("API_ENDPOINT")
+API_AUTH_TOKEN = os.getenv("API_AUTH_TOKEN")  # Information: Read auth token from environment
 
 st.set_page_config(
     layout="wide",
@@ -27,10 +28,14 @@ with open(os.path.join(prompts_folder, 'reasoning_prompt.txt'), 'r') as f:
     reasoning_prompt = f.read()
 
 def get_answer_from_api(user_question, model):
+    # Information: Use auth token from environment instead of hardcoded value
+    if not API_AUTH_TOKEN:
+        return json.dumps({"error": "API_AUTH_TOKEN not configured in .env"})
+    
     payload = {
         "user_question": user_question,
         "user_model": model,
-        "user_auth": "ntel101919"
+        "user_auth": API_AUTH_TOKEN
     }
     headers = {'Content-Type': 'application/json'}
     try:

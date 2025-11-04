@@ -30,14 +30,15 @@
 - `OPENAI_API_KEY`: required.
 - `WEAVIATE_API`: optional; code currently defaults to `http://localhost:8080`.
 - `API_ENDPOINT`: used by Streamlit UI to call FastAPI.
+- `API_AUTH_TOKEN`: required; used for API authentication (replaces hardcoded token).
 
 ## Notable Behaviors
 - `Main.py` picks top Weaviate hit by `_additional.score` and feeds `data` into LLM prompts.
-- Simple auth: payload `user_auth` must match a hardcoded token (`ntel101919`).
+- Auth: payload `user_auth` must match `API_AUTH_TOKEN` from `.env` (secure, rotatable).
 - Tokenization via `transformers` GPT2 tokenizer determines chunking logic in ingestion.
 
 ## Risks / Gaps
-- Hardcoded auth token (replace with secure auth).
+- Auth token now secure via `.env` (✅ resolved).
 - `requirements.txt` missing many runtime deps (use `requirements.txt.old` as reference and pin versions).
 - Unused/legacy patterns (e.g., older OpenAI embeddings usage in `Upload_Data.py`).
 - Weaviate schema assumptions may not match deployed instance.

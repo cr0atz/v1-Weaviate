@@ -44,6 +44,7 @@ Create `/opt/flast-ai/.env`:
 OPENAI_API_KEY=sk-...
 WEAVIATE_API=http://localhost:8080
 API_ENDPOINT=http://127.0.0.1:8000/generate_answers/
+API_AUTH_TOKEN=<generate-with-openssl-rand-hex-32>
 ```
 Permissions:
 ```

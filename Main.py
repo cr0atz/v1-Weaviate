@@ -15,6 +15,7 @@ from openai import OpenAI
 load_dotenv()  # Load the environment variables
 openai.api_key = os.getenv("OPENAI_API_KEY")
 WEAVIATE_API = os.getenv("WEAVIATE_API")
+API_AUTH_TOKEN = os.getenv("API_AUTH_TOKEN")  # Information: Read auth token from environment
 EMBEDDING_MODEL = "text-embedding-ada-002"
 tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
 model = "gpt-4o"
@@ -201,7 +202,14 @@ async def generate_answers(payload: dict):
     model = payload['user_model']
     user_auth = payload['user_auth']
 
-    if user_auth != "ntel101919":
+    # Information: Validate auth token from environment variable instead of hardcoded value
+    if not API_AUTH_TOKEN:
+        raise HTTPException(
+            status_code=500,
+            detail="Server configuration error: API_AUTH_TOKEN not set"
+        )
+    
+    if user_auth != API_AUTH_TOKEN:
         raise HTTPException(
             status_code=401,
             detail="Unauthorized"

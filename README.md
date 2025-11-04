@@ -45,6 +45,7 @@ pip install fastapi uvicorn weaviate-client python-dotenv openai transformers be
 OPENAI_API_KEY=sk-...            # required
 WEAVIATE_API=http://localhost:8080  # optional; code defaults to localhost
 API_ENDPOINT=http://127.0.0.1:8000/generate_answers/  # used by Streamlit UI
+API_AUTH_TOKEN=<your-secure-token>  # required; generate with: openssl rand -hex 32
 ```
 
 ## Running locally
@@ -69,7 +70,7 @@ streamlit run pages/Question_Answer.py
 Notes:
 - The backend reads prompts from the `prompts/` folder.
 - Weaviate class `AI_v1` is expected to have properties: `data`, `case_name`, and `_additional { score }` in the query.
-- `user_auth` is validated against a hardcoded token in the code. Update or remove in production.
+- `user_auth` must match the `API_AUTH_TOKEN` set in `.env` (secure, rotatable).
 
 ## Development Notes
 - The app loads environment variables via `python-dotenv`.

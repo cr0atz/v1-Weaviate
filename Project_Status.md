@@ -6,7 +6,7 @@
 - Domain: Australian Family Law (FLAST-AI).
 
 ## Current State
-- **Repository**: Public on GitHub at https://github.com/cr0atz/v1-Weaviate
+- **Repository**: Public on GitHub at <https://github.com/cr0atz/v1-Weaviate>
 - **Version**: v0.1.0 (initial release)
 - **Status**: Production-ready with secure auth and pinned dependencies
 

@@ -2,7 +2,8 @@
 
 ## Overview
 
-This directory contains the Weaviate schema definition for the `AI_v1` class, which stores Australian Family Law case law documents with hybrid search support.
+This directory contains the Weaviate schema definition for the `AI_v1` class, which stores Australian Family Law case law documents
+with hybrid search support.
 
 ## Schema Version
 

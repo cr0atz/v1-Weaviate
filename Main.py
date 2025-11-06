@@ -8,7 +8,7 @@ from fastapi import FastAPI, Body, HTTPException, Header, Depends
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from typing import List
-import weaviate
+from weaviate import Client as WeaviateClient
 from openai import OpenAI
 
 # ---------------------------- All cofig ----------------------------
@@ -20,8 +20,8 @@ EMBEDDING_MODEL = "text-embedding-ada-002"
 tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
 model = "gpt-4o"
 
-client = weaviate.Client(
-# client = WeaviateClient(
+# Information: Using weaviate-client v3 API (compatible with Weaviate 1.18.2)
+client = WeaviateClient(
     url="http://localhost:8080",  # test1
     # url=WEAVIATE_API,  # test2
 )
@@ -75,21 +75,16 @@ def return_answer_and_context_for_queries(user_question, model):
     try:
         filtered_user_question = user_question.replace('"', "'")
 
-        # Information: Query Weaviate with new schema properties for richer context
+        # Information: Query Weaviate with v3 API
         result = (
             client.query
             .get("AI_v1", [
                 "data", 
-                "case_name", 
-                "citation", 
-                "court", 
-                "jurisdiction", 
-                "decision_date",
-                "paragraph_refs",
+                "case_name",
                 "_additional {score}"
             ])
             .with_hybrid(filtered_user_question)
-            .with_limit(5)  # Information: Get top 5 results for better context
+            .with_limit(5)
             .do()
         )
 
@@ -103,12 +98,14 @@ def return_answer_and_context_for_queries(user_question, model):
 
         # Information: Get highest scoring result
         highest_score = max(ai_v1, key=lambda x: float(x['_additional']['score']))
-        case_name = highest_score['case_name']
-        citation = highest_score.get('citation', '')
-        court = highest_score.get('court', '')
-        jurisdiction = highest_score.get('jurisdiction', '')
-        decision_date = highest_score.get('decision_date', '')
-        data = highest_score['data']
+        case_name = highest_score.get('case_name', 'Unknown Case')
+        data = highest_score.get('data', '')
+        
+        # Note: citation, court, etc. not in old schema - will add later
+        citation = ''
+        court = ''
+        jurisdiction = ''
+        decision_date = ''
         
         # Information: Build enriched case reference for LLM context
         case_reference = f"{case_name}"
@@ -126,7 +123,8 @@ def return_answer_and_context_for_queries(user_question, model):
         reasoning_header = API_reasoning_prompt_text
 
         # Information: Include case reference in prompt for proper citation
-        ans_prompt = f"Questions: {user_question}\n\nCase: {case_reference}\n\nContext: {data.replace('\n', ' ')}"
+        data_clean = data.replace('\n', ' ')
+        ans_prompt = f"Questions: {user_question}\n\nCase: {case_reference}\n\nContext: {data_clean}"
 
         messages = [
             {"role": "system", "content": ans_header if ans_header else "You are a helpful assistant"},
@@ -136,7 +134,8 @@ def return_answer_and_context_for_queries(user_question, model):
         answer = process_answer(model, messages)
 
         # Information: Include case reference in reasoning prompt as well
-        reasoning_prompt = f"Questions: {user_question}\n\nCase: {case_reference}\n\nAnswer: {answer.replace('\n', ' ')}\n\nContext: {data.replace('\n', ' ')}"
+        answer_clean = answer.replace('\n', ' ')
+        reasoning_prompt = f"Questions: {user_question}\n\nCase: {case_reference}\n\nAnswer: {answer_clean}\n\nContext: {data_clean}"
 
         reasoning_messages = [
             {"role": "system", "content": reasoning_header if reasoning_header else "You are a helpful assistant"},

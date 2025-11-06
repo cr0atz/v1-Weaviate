@@ -9,7 +9,7 @@ import time
 import pdfplumber
 import json
 import os
-import weaviate
+from weaviate import Client as WeaviateClient
 from io import StringIO
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
@@ -30,21 +30,26 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 weaviate_API = os.getenv("WEAVIATE_API")
 openai_api_key = os.getenv("OPENAI_API_KEY")
 COMPLETIONS_MODEL = "gpt-4o"
-tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
+# Information: Lazy-load tokenizer to avoid memory issues at startup
+tokenizer = None
 EMBEDDING_MODEL = "text-embedding-3-small"  # Information: Updated to match schema vectorizer
 
 # All configs and settings
-#client = weaviate.Client(
- #   url=weaviate_API,
-    # Or "X-Cohere-Api-Key" or "X-HuggingFace-Api-Key"
-  #  additional_headers={"X-OpenAI-Api-Key": openai_api_key}
-#)
+# Information: Lazy-load Weaviate client to avoid startup issues
+client = None
 
-client = weaviate.Client(
-    url="http://localhost:8080",  # test1
-    # url=WEAVIATE_API,  # test2
-    additional_headers={"X-OpenAI-Api-Key": openai_api_key}
-)
+def get_client():
+    """Lazy-load Weaviate client only when needed"""
+    global client
+    if client is None:
+        # Information: Using weaviate-client v3 API (compatible with Weaviate 1.18.2)
+        client = WeaviateClient(
+            url="http://localhost:8080",  # test1
+            # url=WEAVIATE_API,  # test2
+            additional_headers={"X-OpenAI-Api-Key": openai_api_key}
+        )
+    return client
+
 # create index_files directory if not exists
 
 INDEX_FILE_PATH = 'final_data.json'
@@ -167,7 +172,12 @@ def index_textfiles_main(raw_text, file_name):
     total_tokenized = 0
     total_character_count = 0
     data_ids = []
-    token_limit = 6000
+    token_limit = 500  # Information: Reduced from 6000 to prevent memory issues and stay within model limits
+    
+    # Information: Lazy-load tokenizer only when needed
+    global tokenizer
+    if tokenizer is None:
+        tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
     
     # Information: Tokenize and chunk the text
     tokens = tokenizer.tokenize(text)
@@ -180,9 +190,10 @@ def index_textfiles_main(raw_text, file_name):
     from datetime import datetime
     ingestion_date = datetime.now().isoformat()
 
-    with client.batch as batch:
-        batch.batch_size = token_limit
-
+    # Information: Get Weaviate client and configure batch API
+    weaviate_client = get_client()
+    weaviate_client.batch.configure(batch_size=100)
+    with weaviate_client.batch as batch:
         for chunk_index, chunk in enumerate(chunks):
             chunk_text = tokenizer.convert_tokens_to_string(chunk)
 
@@ -192,24 +203,14 @@ def index_textfiles_main(raw_text, file_name):
             character_count = len(chunk_text)
             total_character_count += character_count
 
-            # Information: Build properties using new schema fields
+            # Information: Simple properties for v3 API (will upgrade schema later)
             properties = {
                 "case_name": metadata["case_name"],
-                "citation": metadata["citation"],
-                "court": metadata["court"],
-                "jurisdiction": metadata["jurisdiction"],
-                "decision_date": metadata["decision_date"],
-                "data": chunk_text,
-                "paragraph_refs": [],  # TODO: Extract paragraph numbers from chunk_text
-                "source_uri": "",  # TODO: Add source URL if available
-                "legal_topics": [],  # TODO: Add topic classification
-                "chunk_index": chunk_index,
-                "total_chunks": total_chunks,
-                "ingestion_date": ingestion_date
+                "data": chunk_text
             }
 
             try:
-                res = client.batch.add_data_object(properties, "AI_v1")
+                res = weaviate_client.batch.add_data_object(properties, "AI_v1")
                 # data_ids.append(str(res))
             except Exception as e:
                 print(f"An error occurred: {e}")
